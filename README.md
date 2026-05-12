@@ -40,6 +40,16 @@ prevision-trafic-aerien/
 ├── app/
 ├── README.md
 ```
-## Statut
+## État d’avancement
 
-Projet en cours de développement.
+- [x] Structure du projet
+- [x] Jeu de données initial
+- [x] Analyse exploratoire
+- [x] Visualisation du trafic
+- [x] Modèle naïf de référence
+- [x] Premier modèle XGBoost
+- [x] Dashboard Streamlit initial
+- [ ] Ajout de données réelles plus complètes
+- [ ] Validation croisée temporelle
+- [ ] Comparaison ARIMA / XGBoost
+- [ ] Amélioration du dashboard
