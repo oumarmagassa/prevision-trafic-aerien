@@ -26,6 +26,9 @@ Ce projet a pour objectif de prévoir le trafic passagers à partir de données 
 
 ```bash
 streamlit run app/dashboard.py
+
+```
+
 ## Structure du projet
 
 ```text
