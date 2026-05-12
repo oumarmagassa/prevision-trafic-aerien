@@ -33,3 +33,7 @@ prevision-trafic-aerien/
 ├── figures/
 ├── app/
 ├── README.md
+```
+## Statut
+
+Projet en cours de développement.
