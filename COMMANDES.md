@@ -1,7 +1,5 @@
 ## Générer la visualisation
-<\> bash
 python src/visualisation.py
-
 ## Tester le modèle naïf
 python src/modele_baseline.py
 ## Tester le modèle XGBoost
