@@ -22,7 +22,10 @@ Ce projet a pour objectif de prévoir le trafic passagers à partir de données 
 - XGBoost
 - matplotlib
 - Streamlit
+## Lancer le dashboard
 
+```bash
+streamlit run app/dashboard.py
 ## Structure du projet
 
 ```text
