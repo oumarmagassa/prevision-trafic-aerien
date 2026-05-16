@@ -13,7 +13,14 @@ Ce projet simule le travail d'un **Analyste de vols - Revenue Management** :
 - Mesurer l'impact du Covid-19 et analyser la reprise
 - Construire et comparer des modèles de prévision (ARIMA, XGBoost)
 - Prévoir le trafic 2025–2026 pour anticiper les décisions tarifaires
-- Analyser le rendement et le proxy du load factor
+- Simuler l'impact financier des ajustements de prix
+- Modéliser les courbes de réservation par segment de clientèle
+
+---
+
+## 🌐 Dashboard en ligne
+
+👉 **[Accéder au dashboard](https://prevision-trafic-aerien.streamlit.app)**
 
 ---
 
@@ -39,7 +46,7 @@ Ce projet simule le travail d'un **Analyste de vols - Revenue Management** :
 ### 1. Analyse exploratoire
 - Évolution du trafic sur 15 ans
 - Saisonnalité mensuelle (pic juillet, creux février)
-- Comparaison année par année
+- Comparaison année par année avec année de référence paramétrable
 - Matrice de corrélations pour la sélection des features
 
 ### 2. Impact Covid & reprise
@@ -52,19 +59,34 @@ Ce projet simule le travail d'un **Analyste de vols - Revenue Management** :
 | Modèle | MAE | RMSE | MAPE |
 |--------|-----|------|------|
 | Naïf (même mois -1 an) | ~300K | ~380K | ~9% |
-| ARIMA (1,1,1)(1,1,1)12 | 355K | 401K | 10.2% |
+| ARIMA (1,1,1) | 355K | 401K | 10.2% |
 | **XGBoost** ✅ | **106K** | **133K** | **3.1%** |
 
 **XGBoost** gagne grâce aux variables de lags (lag_1, lag_3, lag_12) et à la saisonnalité.
 
 ### 4. Prévisions 2025–2026
-- Prévisions mois par mois générées par le modèle XGBoost
+- Prévisions mois par mois avec horizon paramétrable (6, 12, 18, 24 mois)
 - Croissance stable prévue de ~+2.5% vs 2024
 
 ### 5. Rendement & Load Factor
 - Distance moyenne par passager : ~3 050 km (profil long-courrier)
-- Passagers par vol : indicateur proxy du taux de remplissage
+- Passagers par vol : proxy du taux de remplissage
 - Saisonnalité du rendement : pic en juillet–août
+
+### 6. Recommandations tarifaires
+- Décisions automatiques basées sur les prévisions vs l'historique
+- Seuil de décision paramétrable (1% à 15%)
+- 3 niveaux : hausse tarifaire / maintien / stimulation par promotions
+
+### 7. Simulation de revenus
+- Impact financier en millions d'euros des ajustements tarifaires
+- Sliders interactifs : % hausse haute saison, % baisse basse saison, élasticité
+- Comparaison revenu de base vs revenu simulé mois par mois
+
+### 8. Courbes de réservation
+- Simulation du comportement de réservation par segment (Loisir / Affaires)
+- Prix dynamique qui monte selon le taux de remplissage
+- Paramètres interactifs : capacité, profil de demande, horizon, prix de départ
 
 ---
 
@@ -73,17 +95,18 @@ Ce projet simule le travail d'un **Analyste de vols - Revenue Management** :
 ```
 prevision-trafic-aerien/
 ├── data/
-│   └── trafic_airfrance.csv      # Données DGAC filtrées Air France
+│   └── trafic_airfrance.csv       # Données DGAC filtrées Air France
 ├── notebooks/
-│   └── exploration_donnees.ipynb # Analyse exploratoire complète
+│   └── exploration_donnees.ipynb  # Analyse exploratoire complète
 ├── src/
-│   ├── preparation_donnees.py    # Chargement et nettoyage
-│   ├── modele_baseline.py        # Modèle naïf de référence
-│   └── modele_xgboost.py         # Modèle XGBoost avec features temporelles
+│   ├── preparation_donnees.py     # Chargement et nettoyage
+│   ├── modele_baseline.py         # Modèle naïf de référence
+│   └── modele_xgboost.py          # Modèle XGBoost avec features temporelles
 ├── app/
-│   └── dashboard.py              # Dashboard Streamlit interactif (6 onglets)
-├── figures/                      # Graphiques générés
+│   └── dashboard.py               # Dashboard Streamlit (9 onglets)
+├── figures/                       # Graphiques générés
 ├── requirements.txt
+├── COMMANDES.md
 └── README.md
 ```
 
@@ -108,13 +131,8 @@ python -m streamlit run app/dashboard.py
 ### Scripts individuels
 
 ```bash
-# Modèle de référence
 python src/modele_baseline.py
-
-# Modèle XGBoost
 python src/modele_xgboost.py
-
-# Notebook d'analyse
 jupyter notebook notebooks/exploration_donnees.ipynb
 ```
 
@@ -141,12 +159,13 @@ jupyter notebook notebooks/exploration_donnees.ipynb
 1. **Saisonnalité forte et prévisible** → juillet +25% vs moyenne annuelle
 2. **Reprise post-Covid incomplète** → opportunité de stimulation tarifaire en basse saison
 3. **XGBoost fiable à 96.9%** (MAPE 3.1%) → utilisable pour des décisions opérationnelles
-4. **2025–2026 stables** → croissance modérée attendue, sans choc majeur prévu
+4. **Simulation revenus** → une hausse de 10% en haute saison génère plusieurs millions d'euros
+5. **Courbes de réservation** → les affaires réservent tard, les loisirs tôt → tarification différenciée
 
 ---
 
 ## 👤 Auteur
 
 **Oumar Magassa**  
-Projet réalisé dans le cadre d'une candidature — Analyste de vols, Revenue Management — Air France  
+Projet Data Science — Prévision & Optimisation du Revenue Management Aérien
 Données : DGAC — Licence Ouverte 2.0
