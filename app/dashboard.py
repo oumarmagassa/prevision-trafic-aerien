@@ -559,7 +559,7 @@ with tab9:
     fig13, (ax13a, ax13b) = plt.subplots(2, 1, figsize=(12, 8))
 
     # Graphique réservations
-    ax13a.stackplot(jours[::-1], pax_loisir[::-1], pax_affaires[::-1],
+    ax13a.stackplot(jours_avant[::-1], pax_loisir[::-1], pax_affaires[::-1],
                     labels=["Passagers Loisir", "Passagers Affaires"],
                     colors=["steelblue", "tomato"], alpha=0.7)
     ax13a.axhline(capacite, color="black", linestyle="--", linewidth=1.5, label=f"Capacité ({capacite} sièges)")
@@ -570,8 +570,8 @@ with tab9:
     ax13a.invert_xaxis()
 
     # Graphique prix dynamique
-    ax13b.plot(jours[::-1], prix_dynamique[::-1], color="darkorange", linewidth=2.5)
-    ax13b.fill_between(jours[::-1], prix_depart, prix_dynamique[::-1], alpha=0.15, color="darkorange")
+    ax13b.plot(jours_avant[::-1], prix_dynamique[::-1], color="darkorange", linewidth=2.5)
+    ax13b.fill_between(jours_avant[::-1], prix_depart, prix_dynamique[::-1], alpha=0.15, color="darkorange")
     ax13b.axhline(prix_depart, color="gray", linestyle="--", linewidth=1, label=f"Prix de départ ({prix_depart}€)")
     ax13b.set_xlabel("Jours avant le vol")
     ax13b.set_ylabel("Prix du billet (€)")
