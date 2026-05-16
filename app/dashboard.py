@@ -125,10 +125,11 @@ df_futur = prevoir_futur(df, model, features, horizon)
 mois_labels = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"]
 
 # ── Onglets ──────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "📊 Analyse", "🤖 XGBoost", "🔮 Prévisions",
     "⚖️ Comparaison modèles", "🏥 Reprise post-Covid",
-    "📦 Rendement & Load Factor", "🎯 Recommandations"
+    "📦 Rendement & Load Factor", "🎯 Recommandations",
+    "💶 Simulation revenus", "📈 Courbes de réservation"
 ])
 
 # ══ TAB 1 — Analyse ═════════════════════════════════════════════
@@ -403,6 +404,200 @@ with tab7:
 
     st.divider()
     st.warning("Ces recommandations sont basées sur les prévisions XGBoost (MAPE 3.1%) et l'historique DGAC 2010–2024. En contexte réel, elles seraient affinées avec les données de réservation en temps réel, la concurrence tarifaire et les événements externes.")
+
+
+# ══ TAB 8 — Simulation revenus ══════════════════════════════════
+with tab8:
+    st.subheader("💶 Simulation de revenus — Impact des décisions tarifaires")
+    st.caption("Estimation de l'impact financier des ajustements de prix sur les prévisions 2025–2026")
+
+    PRIX_MOYEN = 250  # yield moyen Air France en euros (estimation publique)
+
+    st.sidebar.subheader("💶 Simulation tarifaire")
+    hausse_pct = st.sidebar.slider("Hausse tarifaire haute saison (%)", 0, 30, 10, key="hausse_pct")
+    baisse_pct = st.sidebar.slider("Baisse tarifaire basse saison (%)", 0, 20, 8, key="baisse_pct")
+    elasticite = st.sidebar.slider("Élasticité prix-demande", 0.5, 2.0, 1.2, step=0.1, key="elast",
+                                   help="1.0 = la demande baisse autant que le prix monte. 1.2 = demande plus sensible au prix.")
+
+    df_hc  = df[df["covid"] == 0]
+    ref_rm = df_hc.groupby("mois")["passagers"].mean()
+
+    simulation = []
+    for _, row in df_futur.iterrows():
+        mois = row["date"].month
+        prev = row["passagers_prevu"]
+        moy  = ref_rm[mois]
+        ecart = (prev - moy) / moy * 100
+
+        if ecart >= seuil_decision:
+            # Haute saison : on monte les prix
+            nouveau_prix  = PRIX_MOYEN * (1 + hausse_pct / 100)
+            # La demande baisse légèrement selon l'élasticité
+            nouveaux_pax  = prev * (1 - (hausse_pct / 100) * (elasticite - 1) * 0.1)
+            type_sim      = "hausse"
+        elif ecart <= -seuil_decision:
+            # Basse saison : on baisse les prix pour attirer
+            nouveau_prix  = PRIX_MOYEN * (1 - baisse_pct / 100)
+            # La demande monte grâce aux promotions
+            nouveaux_pax  = prev * (1 + (baisse_pct / 100) * elasticite * 0.3)
+            type_sim      = "promo"
+        else:
+            nouveau_prix  = PRIX_MOYEN
+            nouveaux_pax  = prev
+            type_sim      = "maintien"
+
+        revenu_base    = prev * PRIX_MOYEN
+        revenu_nouveau = nouveaux_pax * nouveau_prix
+        gain           = revenu_nouveau - revenu_base
+
+        simulation.append({
+            "date"          : row["date"],
+            "mois"          : row["date"].strftime("%B %Y"),
+            "pax_prevu"     : prev,
+            "pax_simule"    : nouveaux_pax,
+            "prix_base"     : PRIX_MOYEN,
+            "prix_simule"   : nouveau_prix,
+            "revenu_base"   : revenu_base,
+            "revenu_simule" : revenu_nouveau,
+            "gain"          : gain,
+            "type_sim"      : type_sim,
+        })
+
+    df_sim = pd.DataFrame(simulation)
+    gain_total = df_sim["gain"].sum()
+    gain_hausse = df_sim[df_sim["type_sim"]=="hausse"]["gain"].sum()
+    gain_promo  = df_sim[df_sim["type_sim"]=="promo"]["gain"].sum()
+
+    # KPIs
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Gain total estimé",        f"{gain_total/1e6:+.1f}M€")
+    k2.metric("Gain haute saison",        f"{gain_hausse/1e6:+.1f}M€", f"Hausse de {hausse_pct}%")
+    k3.metric("Gain basse saison",        f"{gain_promo/1e6:+.1f}M€",  f"Baisse de {baisse_pct}%")
+    k4.metric("Prix moyen de référence",  f"{PRIX_MOYEN}€ / passager")
+
+    st.info(f"💡 En appliquant une hausse de **{hausse_pct}%** en haute saison et une baisse de **{baisse_pct}%** en basse saison, Air France pourrait générer **{gain_total/1e6:+.1f}M€** de revenus supplémentaires sur {horizon} mois.")
+
+    st.divider()
+
+    # Graphique gains par mois
+    fig12, ax12 = plt.subplots(figsize=(12, 4))
+    couleurs_sim = df_sim["gain"].apply(lambda x: "steelblue" if x >= 0 else "tomato")
+    ax12.bar(df_sim["date"], df_sim["gain"]/1e6, color=couleurs_sim, alpha=0.85, width=25)
+    ax12.axhline(0, color="black", linewidth=1)
+    ax12.set_ylabel("Gain estimé (millions €)")
+    ax12.set_title("Impact financier mensuel des ajustements tarifaires")
+    ax12.grid(True, axis="y", alpha=0.3)
+    st.pyplot(fig12)
+
+    st.divider()
+
+    # Tableau comparatif
+    st.subheader("📋 Comparaison revenu base vs simulé")
+    df_aff_sim = df_sim[["mois","prix_base","prix_simule","pax_prevu","pax_simule","revenu_base","revenu_simule","gain"]].copy()
+    df_aff_sim["prix_base"]     = df_aff_sim["prix_base"].apply(lambda x: f"{x:.0f}€")
+    df_aff_sim["prix_simule"]   = df_aff_sim["prix_simule"].apply(lambda x: f"{x:.0f}€")
+    df_aff_sim["pax_prevu"]     = df_aff_sim["pax_prevu"].apply(lambda x: f"{x:,.0f}")
+    df_aff_sim["pax_simule"]    = df_aff_sim["pax_simule"].apply(lambda x: f"{x:,.0f}")
+    df_aff_sim["revenu_base"]   = df_aff_sim["revenu_base"].apply(lambda x: f"{x/1e6:.1f}M€")
+    df_aff_sim["revenu_simule"] = df_aff_sim["revenu_simule"].apply(lambda x: f"{x/1e6:.1f}M€")
+    df_aff_sim["gain"]          = df_aff_sim["gain"].apply(lambda x: f"{x/1e6:+.1f}M€")
+    df_aff_sim.columns = ["Mois","Prix base","Prix simulé","Pax prévus","Pax simulés","Revenu base","Revenu simulé","Gain"]
+    st.dataframe(df_aff_sim, use_container_width=True, hide_index=True)
+
+    st.warning("⚠️ Simulation basée sur un yield moyen estimé de 250€/passager et une élasticité simplifiée. En contexte réel, chaque route a son propre yield et sa propre élasticité.")
+
+# ══ TAB 9 — Courbes de réservation ══════════════════════════════
+with tab9:
+    st.subheader("📈 Courbes de réservation simulées")
+    st.caption("Simulation du comportement de réservation avant le vol — concept clé du Revenue Management")
+
+    st.markdown("""
+    En Revenue Management, une **courbe de réservation** montre comment les passagers réservent dans les semaines précédant le vol.
+    Elle permet de savoir si un vol va se remplir normalement ou non, et d'ajuster les tarifs en conséquence.
+
+    **Profils types :**
+    - 🔵 **Loisir** : réserve tôt (6–8 semaines avant), sensible au prix
+    - 🔴 **Affaires** : réserve tard (1–2 semaines avant), peu sensible au prix
+    - 🟢 **Normal** : mix des deux profils
+    """)
+
+    st.divider()
+
+    # Paramètres simulation
+    col_p1, col_p2 = st.columns(2)
+    with col_p1:
+        capacite    = st.slider("Capacité de l'avion (sièges)", 150, 500, 300, key="capa")
+        profil      = st.selectbox("Profil de demande", ["Normal", "Forte demande", "Faible demande"], key="profil")
+    with col_p2:
+        semaines    = st.slider("Semaines avant le vol", 1, 12, 8, key="semaines")
+        prix_depart = st.slider("Prix de départ (€)", 150, 600, 250, key="prix_dep")
+
+    # Simulation des courbes
+    jours = np.arange(semaines * 7, 0, -1)
+
+    if profil == "Forte demande":
+        facteur = 1.3
+    elif profil == "Faible demande":
+        facteur = 0.7
+    else:
+        facteur = 1.0
+
+    # Courbe loisir : réserve tôt
+    pax_loisir = (capacite * 0.55 * facteur * (1 - np.exp(-jours / 30))).clip(0, capacite * 0.6)
+    # Courbe affaires : réserve tard
+    pax_affaires = (capacite * 0.35 * facteur * (1 - np.exp(-jours / 8))).clip(0, capacite * 0.4)
+    # Total
+    pax_total = (pax_loisir + pax_affaires).clip(0, capacite)
+
+    # Prix dynamique : monte quand l'avion se remplit
+    taux_remplissage = pax_total / capacite
+    prix_dynamique   = prix_depart * (1 + 0.8 * taux_remplissage ** 2)
+
+    fig13, (ax13a, ax13b) = plt.subplots(2, 1, figsize=(12, 8))
+
+    # Graphique réservations
+    ax13a.stackplot(jours[::-1], pax_loisir[::-1], pax_affaires[::-1],
+                    labels=["Passagers Loisir", "Passagers Affaires"],
+                    colors=["steelblue", "tomato"], alpha=0.7)
+    ax13a.axhline(capacite, color="black", linestyle="--", linewidth=1.5, label=f"Capacité ({capacite} sièges)")
+    ax13a.set_xlabel("Jours avant le vol")
+    ax13a.set_ylabel("Passagers réservés")
+    ax13a.set_title("Courbe de réservation simulée par segment")
+    ax13a.legend(); ax13a.grid(True, alpha=0.3)
+    ax13a.invert_xaxis()
+
+    # Graphique prix dynamique
+    ax13b.plot(jours[::-1], prix_dynamique[::-1], color="darkorange", linewidth=2.5)
+    ax13b.fill_between(jours[::-1], prix_depart, prix_dynamique[::-1], alpha=0.15, color="darkorange")
+    ax13b.axhline(prix_depart, color="gray", linestyle="--", linewidth=1, label=f"Prix de départ ({prix_depart}€)")
+    ax13b.set_xlabel("Jours avant le vol")
+    ax13b.set_ylabel("Prix du billet (€)")
+    ax13b.set_title("Prix dynamique selon le taux de remplissage")
+    ax13b.legend(); ax13b.grid(True, alpha=0.3)
+    ax13b.invert_xaxis()
+
+    plt.tight_layout()
+    st.pyplot(fig13)
+
+    st.divider()
+
+    # KPIs de la simulation
+    taux_final = pax_total[-1] / capacite * 100
+    prix_final = prix_dynamique[-1]
+    revenu_sim = pax_total[-1] * prix_dynamique.mean()
+
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Taux de remplissage prévu",  f"{taux_final:.1f}%")
+    k2.metric("Prix à J-1",                 f"{prix_final:.0f}€", f"+{prix_final-prix_depart:.0f}€ vs départ")
+    k3.metric("Revenu estimé du vol",        f"{revenu_sim:,.0f}€")
+
+    st.success(f"💡 Avec un profil **{profil.lower()}**, l'avion devrait être rempli à **{taux_final:.1f}%** la veille du vol. "
+               f"Le prix dynamique est passé de **{prix_depart}€** à **{prix_final:.0f}€** — soit une hausse de **{((prix_final/prix_depart)-1)*100:.1f}%**. "
+               f"C'est exactement la logique du Revenue Management : maximiser le revenu selon la demande réelle.")
+
+    st.divider()
+    st.info("ℹ️ Cette simulation est une illustration pédagogique du concept de courbe de réservation. "
+            "En réalité, Air France utilise des systèmes RM sophistiqués (Amadeus, etc.) avec des données de réservation en temps réel sur chaque vol.")
 
 st.divider()
 st.caption("Source : DGAC — Direction Générale de l'Aviation Civile | Licence Ouverte 2.0")
