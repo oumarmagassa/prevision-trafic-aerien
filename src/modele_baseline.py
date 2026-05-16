@@ -1,19 +1,38 @@
-
 import pandas as pd
-from sklearn.metrics import mean_absolute_error, mean_squared_error
 import numpy as np
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-df = pd.read_csv("data/trafic_aerien.csv")
-df["date"] = pd.to_datetime(df["date"])
+def evaluer_modele(y_true, y_pred, nom="Modèle"):
+    mae = mean_absolute_error(y_true, y_pred)
+    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+    mape = np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+    print(f"\n📊 {nom}")
+    print(f"   MAE  : {mae:,.0f} passagers")
+    print(f"   RMSE : {rmse:,.0f} passagers")
+    print(f"   MAPE : {mape:.1f}%")
+    return {"nom": nom, "MAE": mae, "RMSE": rmse, "MAPE": mape}
 
-# Modèle naïf : la prévision du mois suivant = valeur du mois précédent
-df["prediction_naive"] = df["passagers"].shift(1)
+def modele_naif(df):
+    """Prévision = valeur du même mois l'année précédente (saisonnalité 12 mois)."""
+    df = df.copy()
+    df['prediction_naive'] = df['passagers'].shift(12)
+    df_eval = df.dropna(subset=['prediction_naive'])
+    # On exclut la période Covid pour une évaluation plus juste
+    df_eval = df_eval[df_eval['covid'] == 0]
+    return evaluer_modele(df_eval['passagers'], df_eval['prediction_naive'], "Modèle Naïf (même mois -1 an)")
 
-# Suppression de la première ligne sans prédiction
-df_eval = df.dropna()
+def modele_moyenne_mobile(df):
+    """Prévision = moyenne des 3 derniers mois identiques."""
+    df = df.copy()
+    df['prediction_mm'] = df['passagers'].rolling(window=3).mean().shift(1)
+    df_eval = df.dropna(subset=['prediction_mm'])
+    df_eval = df_eval[df_eval['covid'] == 0]
+    return evaluer_modele(df_eval['passagers'], df_eval['prediction_mm'], "Moyenne Mobile (3 mois)")
 
-mae = mean_absolute_error(df_eval["passagers"], df_eval["prediction_naive"])
-rmse = np.sqrt(mean_squared_error(df_eval["passagers"], df_eval["prediction_naive"]))
-
-print(f"MAE du modèle naïf : {mae:.2f}")
-print(f"RMSE du modèle naïf : {rmse:.2f}")
+if __name__ == "__main__":
+    df = pd.read_csv("data/trafic_airfrance.csv", parse_dates=['date'])
+    print("=== MODÈLES DE RÉFÉRENCE ===")
+    resultats = []
+    resultats.append(modele_naif(df))
+    resultats.append(modele_moyenne_mobile(df))
+    print("\n✅ Évaluation terminée.")
