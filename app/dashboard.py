@@ -533,25 +533,28 @@ with tab9:
         prix_depart = st.slider("Prix de départ (€)", 150, 600, 250, key="prix_dep")
 
     # Simulation des courbes
-    jours = np.arange(semaines * 7, 0, -1)
+    # jours_avant = de semaines*7 jusqu'à 1 jour avant le vol
+    jours_avant = np.arange(semaines * 7, 0, -1)  # ex: 84, 83, ..., 1
 
     if profil == "Forte demande":
         facteur = 1.3
     elif profil == "Faible demande":
-        facteur = 0.7
+        facteur = 0.6
     else:
         facteur = 1.0
 
-    # Courbe loisir : réserve tôt
-    pax_loisir = (capacite * 0.55 * facteur * (1 - np.exp(-jours / 30))).clip(0, capacite * 0.6)
-    # Courbe affaires : réserve tard
-    pax_affaires = (capacite * 0.35 * facteur * (1 - np.exp(-jours / 8))).clip(0, capacite * 0.4)
-    # Total
-    pax_total = (pax_loisir + pax_affaires).clip(0, capacite)
+    total_jours = semaines * 7
 
-    # Prix dynamique : monte quand l'avion se remplit
+    # Courbe loisir : réserve tôt (exponentielle croissante dans le temps)
+    # x va de 0 à 1 au fil du temps (0 = début, 1 = veille du vol)
+    x = (total_jours - jours_avant) / total_jours  # progression temporelle 0→1
+    pax_loisir   = (capacite * 0.60 * facteur * (1 - np.exp(-4 * x))).clip(0, capacite * 0.65)
+    pax_affaires = (capacite * 0.35 * facteur * (1 - np.exp(-12 * x))).clip(0, capacite * 0.38)
+    pax_total    = (pax_loisir + pax_affaires).clip(0, capacite)
+
+    # Prix dynamique : monte fortement quand le taux de remplissage dépasse 60%
     taux_remplissage = pax_total / capacite
-    prix_dynamique   = prix_depart * (1 + 0.8 * taux_remplissage ** 2)
+    prix_dynamique   = prix_depart * (1 + 1.5 * np.maximum(0, taux_remplissage - 0.3) ** 1.5)
 
     fig13, (ax13a, ax13b) = plt.subplots(2, 1, figsize=(12, 8))
 
