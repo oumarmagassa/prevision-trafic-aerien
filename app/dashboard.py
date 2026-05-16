@@ -128,41 +128,82 @@ df_futur = prevoir_futur(df, model, features, horizon)
 mois_labels = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"]
 
 # ── Génération PDF ───────────────────────────────────────────────
-def generer_rapport_pdf(df, df_futur, df_filtre, test_xgb, preds_xgb, mae_xgb, rmse_xgb, mape_xgb, mae_arima, mape_arima, train, seuil_decision):
+def generer_rapport_pdf(df, df_futur, df_filtre, test_xgb, preds_xgb, mae_xgb, rmse_xgb, mape_xgb, test_arima, preds_arima, mae_arima, rmse_arima, mape_arima, train, seuil_decision, horizon, annee_ref, hausse_pct=10, baisse_pct=8):
     buf = BytesIO()
     with pdf_backend.PdfPages(buf) as pdf_pages:
 
-        # Page 1 : Page de titre
+        # ── Page 1 : Titre ──────────────────────────────────────
         fig = plt.figure(figsize=(11.69, 8.27))
         fig.patch.set_facecolor("#1a3a5c")
         ax  = fig.add_axes([0, 0, 1, 1])
-        ax.set_facecolor("#1a3a5c")
-        ax.axis("off")
+        ax.set_facecolor("#1a3a5c"); ax.axis("off")
         ax.text(0.5, 0.75, "Prévision du trafic passagers", ha="center", fontsize=28, fontweight="bold", color="white", transform=ax.transAxes)
         ax.text(0.5, 0.63, "Air France — Revenue Management", ha="center", fontsize=22, color="#87CEEB", transform=ax.transAxes)
         ax.text(0.5, 0.50, "Analyse · Modélisation · Simulation tarifaire", ha="center", fontsize=14, color="#cccccc", transform=ax.transAxes)
         ax.text(0.5, 0.38, f"Données DGAC officielles · 2010–2024 · {len(df)} mois", ha="center", fontsize=12, color="#aaaaaa", transform=ax.transAxes)
-        ax.text(0.5, 0.22, f"Généré le {datetime.date.today().strftime('%d %B %Y')}", ha="center", fontsize=11, color="#888888", transform=ax.transAxes)
+        ax.text(0.5, 0.26, "Modèles : Naïf · ARIMA · XGBoost", ha="center", fontsize=11, color="#aaaaaa", transform=ax.transAxes)
+        ax.text(0.5, 0.14, f"Généré le {datetime.date.today().strftime('%d %B %Y')}", ha="center", fontsize=11, color="#888888", transform=ax.transAxes)
         pdf_pages.savefig(fig, bbox_inches="tight"); plt.close()
 
-        # Page 2 : Évolution + Saisonnalité
+        # ── Page 2 : Évolution + Saisonnalité ───────────────────
         fig, axes = plt.subplots(2, 1, figsize=(11.69, 8.27))
-        fig.suptitle("Analyse du trafic passagers Air France (2010–2024)", fontsize=14, fontweight="bold")
+        fig.suptitle("1. Analyse du trafic passagers Air France (2010–2024)", fontsize=14, fontweight="bold")
         axes[0].plot(df["date"], df["passagers"]/1e6, color="steelblue", linewidth=1.5)
         axes[0].fill_between(df["date"], df["passagers"]/1e6, alpha=0.1, color="steelblue")
         axes[0].axvspan(pd.Timestamp("2020-03-01"), pd.Timestamp("2021-06-01"), alpha=0.2, color="red", label="Covid-19")
         axes[0].set_title("Évolution mensuelle du trafic"); axes[0].set_ylabel("Passagers (millions)")
         axes[0].legend(); axes[0].grid(True, alpha=0.3)
         saisonnalite = df[df["covid"]==0].groupby("mois")["passagers"].mean()/1e6
-        bars = axes[1].bar(mois_labels, saisonnalite.values, color="steelblue", alpha=0.8)
+        ref_an = df[df["annee"]==annee_ref].groupby("mois")["passagers"].mean()/1e6
+        bars = axes[1].bar(mois_labels, saisonnalite.values, color="steelblue", alpha=0.7, label="Moyenne historique")
         bars[saisonnalite.values.argmax()].set_color("tomato")
+        axes[1].plot(mois_labels, ref_an.values, color="orange", marker="o", linewidth=2, label=f"Référence {annee_ref}")
         axes[1].set_title("Saisonnalité mensuelle (hors Covid)"); axes[1].set_ylabel("Passagers moyens (millions)")
-        axes[1].grid(True, axis="y", alpha=0.3)
+        axes[1].legend(); axes[1].grid(True, axis="y", alpha=0.3)
         plt.tight_layout(); pdf_pages.savefig(fig, bbox_inches="tight"); plt.close()
 
-        # Page 3 : Modèle XGBoost
-        fig, ax = plt.subplots(figsize=(11.69, 5))
-        fig.suptitle(f"Modèle XGBoost — MAE: {mae_xgb/1e3:.0f}K | RMSE: {rmse_xgb/1e3:.0f}K | MAPE: {mape_xgb:.1f}%", fontsize=13, fontweight="bold")
+        # ── Page 3 : Comparaison annuelle ───────────────────────
+        fig, ax = plt.subplots(figsize=(11.69, 5.5))
+        fig.suptitle("2. Comparaison annuelle du trafic", fontsize=14, fontweight="bold")
+        palette = plt.cm.tab10.colors
+        for i, annee in enumerate(sorted(df["annee"].unique())):
+            data  = df[df["annee"]==annee].sort_values("mois")
+            style = "--" if annee in [2020, 2021] else "-"
+            width = 2.5 if annee in [annee_ref, 2024] else 1.0
+            ax.plot(data["mois"], data["passagers"]/1e6, label=str(annee),
+                    linestyle=style, linewidth=width, color=palette[i % len(palette)])
+        ax.set_xticks(range(1,13)); ax.set_xticklabels(mois_labels)
+        ax.set_ylabel("Passagers (millions)"); ax.grid(True, alpha=0.3)
+        ax.legend(bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=8)
+        plt.tight_layout(); pdf_pages.savefig(fig, bbox_inches="tight"); plt.close()
+
+        # ── Page 4 : Comparaison modèles ────────────────────────
+        fig, axes = plt.subplots(1, 2, figsize=(11.69, 5.5))
+        fig.suptitle("3. Comparaison des modèles de prévision (2023–2024)", fontsize=14, fontweight="bold")
+        axes[0].plot(test_xgb["date"], test_xgb["passagers"]/1e6, label="Réel", color="green", linewidth=2)
+        axes[0].plot(test_xgb["date"], preds_xgb/1e6, label=f"XGBoost ({mape_xgb:.1f}%)", color="red", linestyle="--", linewidth=1.8)
+        axes[0].plot(test_arima["date"], preds_arima/1e6, label=f"ARIMA ({mape_arima:.1f}%)", color="purple", linestyle=":", linewidth=1.8)
+        axes[0].set_ylabel("Passagers (millions)"); axes[0].legend(); axes[0].grid(True, alpha=0.3)
+        axes[0].set_title("Prévisions vs Réel")
+        data_table = [
+            ["Modèle", "MAE", "MAPE"],
+            ["Naïf", "~300K", "~9%"],
+            ["ARIMA", f"{mae_arima/1e3:.0f}K", f"{mape_arima:.1f}%"],
+            ["XGBoost ✅", f"{mae_xgb/1e3:.0f}K", f"{mape_xgb:.1f}%"],
+        ]
+        axes[1].axis("off")
+        table = axes[1].table(cellText=data_table[1:], colLabels=data_table[0], loc="center", cellLoc="center")
+        table.auto_set_font_size(False); table.set_fontsize(13); table.scale(1.4, 2.8)
+        for j in range(3):
+            table[0, j].set_facecolor("#1a3a5c")
+            table[0, j].set_text_props(color="white", fontweight="bold")
+            table[3, j].set_facecolor("#e8f4e8")
+        axes[1].set_title("Métriques comparées")
+        plt.tight_layout(); pdf_pages.savefig(fig, bbox_inches="tight"); plt.close()
+
+        # ── Page 5 : XGBoost détail ─────────────────────────────
+        fig, ax = plt.subplots(figsize=(11.69, 5.5))
+        fig.suptitle(f"4. Modèle XGBoost — MAE: {mae_xgb/1e3:.0f}K | RMSE: {rmse_xgb/1e3:.0f}K | MAPE: {mape_xgb:.1f}%", fontsize=13, fontweight="bold")
         ax.plot(train["date"], train["passagers"]/1e6, label="Entraînement (2010–2022)", color="steelblue")
         ax.plot(test_xgb["date"], test_xgb["passagers"]/1e6, label="Réel (2023–2024)", color="green")
         ax.plot(test_xgb["date"], preds_xgb/1e6, label="Prévision XGBoost", color="red", linestyle="--", linewidth=2)
@@ -170,79 +211,150 @@ def generer_rapport_pdf(df, df_futur, df_filtre, test_xgb, preds_xgb, mae_xgb, r
         ax.set_ylabel("Passagers (millions)"); ax.legend(); ax.grid(True, alpha=0.3)
         plt.tight_layout(); pdf_pages.savefig(fig, bbox_inches="tight"); plt.close()
 
-        # Page 4 : Prévisions futures
-        fig, ax = plt.subplots(figsize=(11.69, 5))
-        fig.suptitle("Prévisions du trafic Air France 2025–2026", fontsize=13, fontweight="bold")
+        # ── Page 6 : Prévisions 2025-2026 ───────────────────────
+        fig, axes = plt.subplots(1, 2, figsize=(11.69, 5.5))
+        fig.suptitle(f"5. Prévisions du trafic Air France ({horizon} mois)", fontsize=14, fontweight="bold")
         df_rec = df[df["annee"] >= 2018]
-        ax.plot(df_rec["date"], df_rec["passagers"]/1e6, label="Historique réel", color="steelblue", linewidth=1.8)
-        ax.plot(df_futur["date"], df_futur["passagers_prevu"]/1e6, label="Prévision XGBoost",
+        axes[0].plot(df_rec["date"], df_rec["passagers"]/1e6, label="Historique réel", color="steelblue", linewidth=1.8)
+        axes[0].plot(df_futur["date"], df_futur["passagers_prevu"]/1e6, label=f"Prévision ({horizon} mois)",
                 color="orange", linestyle="--", linewidth=2.5, marker="o", markersize=4)
-        ax.axvline(pd.Timestamp("2025-01-01"), color="gray", linestyle=":", alpha=0.7)
-        ax.set_ylabel("Passagers (millions)"); ax.legend(); ax.grid(True, alpha=0.3)
+        axes[0].axvline(pd.Timestamp("2025-01-01"), color="gray", linestyle=":", alpha=0.7)
+        axes[0].set_ylabel("Passagers (millions)"); axes[0].legend(); axes[0].grid(True, alpha=0.3)
+        axes[0].set_title("Historique + Prévisions")
+        df_aff = df_futur.copy()
+        df_aff["Mois"] = df_aff["date"].dt.strftime("%b %Y")
+        df_aff["Passagers prévus"] = df_aff["passagers_prevu"].apply(lambda x: f"{x:,.0f}")
+        axes[1].axis("off")
+        table2 = axes[1].table(
+            cellText=df_aff[["Mois","Passagers prévus"]].values,
+            colLabels=["Mois","Passagers prévus"], loc="center", cellLoc="center")
+        table2.auto_set_font_size(False); table2.set_fontsize(9); table2.scale(1.2, 1.4)
+        for j in range(2):
+            table2[0, j].set_facecolor("#1a3a5c")
+            table2[0, j].set_text_props(color="white", fontweight="bold")
+        axes[1].set_title("Détail mensuel")
         plt.tight_layout(); pdf_pages.savefig(fig, bbox_inches="tight"); plt.close()
 
-        # Page 5 : Reprise Covid
-        ref  = df[df["annee"].isin([2017,2018,2019])].groupby("mois")["passagers"].mean()
-        post = df[df["annee"] >= 2021].copy()
-        post["ref_mois"] = post["mois"].map(ref)
+        # ── Page 7 : Reprise post-Covid ─────────────────────────
+        ref_cv = df[df["annee"].isin([2017,2018,2019])].groupby("mois")["passagers"].mean()
+        post   = df[df["annee"] >= 2021].copy()
+        post["ref_mois"] = post["mois"].map(ref_cv)
         post["taux"]     = (post["passagers"] / post["ref_mois"] * 100).round(1)
         date_95 = post[post["taux"] >= 95]["date"].min()
-        fig, ax = plt.subplots(figsize=(11.69, 5))
-        fig.suptitle(f"Reprise post-Covid — 1er mois à 95% : {date_95.strftime('%B %Y')}", fontsize=13, fontweight="bold")
+        taux_2024 = post[post["annee"]==2024]["taux"].mean()
+        fig, axes = plt.subplots(1, 2, figsize=(11.69, 5.5))
+        fig.suptitle(f"6. Reprise post-Covid — 1er mois à 95% : {date_95.strftime('%B %Y')}", fontsize=13, fontweight="bold")
         couleurs = post["taux"].apply(lambda x: "tomato" if x < 70 else ("orange" if x < 90 else "steelblue"))
-        ax.bar(post["date"], post["taux"], color=couleurs, alpha=0.8, width=25)
-        ax.axhline(100, color="green", linestyle="--", linewidth=1.5, label="Niveau pré-Covid (100%)")
-        ax.axhline(95,  color="orange", linestyle=":", linewidth=1.2, label="Seuil 95%")
-        ax.set_ylabel("% du niveau pré-Covid"); ax.set_ylim(0, 115)
-        ax.legend(); ax.grid(True, axis="y", alpha=0.3)
+        axes[0].bar(post["date"], post["taux"], color=couleurs, alpha=0.8, width=25)
+        axes[0].axhline(100, color="green", linestyle="--", linewidth=1.5, label="Niveau pré-Covid (100%)")
+        axes[0].axhline(95,  color="orange", linestyle=":", linewidth=1.2, label="Seuil 95%")
+        axes[0].set_ylabel("% du niveau pré-Covid"); axes[0].set_ylim(0, 115)
+        axes[0].legend(); axes[0].grid(True, axis="y", alpha=0.3)
+        axes[0].set_title("Taux de récupération")
+        axes[1].plot(range(1,13), ref_cv.values/1e6, label=f"Réf. {annee_ref}", color="green", linewidth=2, linestyle="--", marker="o")
+        for annee, couleur in [(2022,"orange"),(2023,"steelblue"),(2024,"red")]:
+            data = df[df["annee"]==annee].sort_values("mois")
+            axes[1].plot(data["mois"], data["passagers"]/1e6, label=str(annee), linewidth=1.8, marker="s", markersize=4, color=couleur)
+        axes[1].set_xticks(range(1,13)); axes[1].set_xticklabels(mois_labels, rotation=45)
+        axes[1].set_ylabel("Passagers (millions)"); axes[1].legend(); axes[1].grid(True, alpha=0.3)
+        axes[1].set_title(f"Comparaison vs référence {annee_ref}")
         plt.tight_layout(); pdf_pages.savefig(fig, bbox_inches="tight"); plt.close()
 
-        # Page 6 : Recommandations tarifaires
-        df_hc   = df[df["covid"] == 0]
-        ref_rm  = df_hc.groupby("mois")["passagers"].mean()
-        recs    = []
+        # ── Page 8 : Rendement & Load Factor ────────────────────
+        df_rm = df.copy()
+        df_rm["dist_moy_km"] = (df_rm["passagers_km_num"] * 1e9) / df_rm["passagers"]
+        df_rm["pax_par_vol"] = df_rm["passagers"] / df_rm["vols"]
+        fig, axes = plt.subplots(2, 1, figsize=(11.69, 8.27))
+        fig.suptitle("7. Rendement & Load Factor", fontsize=14, fontweight="bold")
+        axes[0].plot(df_rm["date"], df_rm["dist_moy_km"], color="steelblue", linewidth=1.5)
+        axes[0].fill_between(df_rm["date"], df_rm["dist_moy_km"], alpha=0.1, color="steelblue")
+        axes[0].axvspan(pd.Timestamp("2020-03-01"), pd.Timestamp("2021-06-01"), alpha=0.15, color="red", label="Covid")
+        axes[0].set_ylabel("Distance moyenne (km/passager)"); axes[0].legend(); axes[0].grid(True, alpha=0.3)
+        axes[0].set_title("Distance moyenne par passager")
+        axes[1].plot(df_rm["date"], df_rm["pax_par_vol"], color="darkorange", linewidth=1.5)
+        axes[1].axhline(df_rm[df_rm["annee"].isin([2017,2018,2019])]["pax_par_vol"].mean(),
+                    color="green", linestyle="--", linewidth=1.5, label="Référence pré-Covid")
+        axes[1].axvspan(pd.Timestamp("2020-03-01"), pd.Timestamp("2021-06-01"), alpha=0.15, color="red", label="Covid")
+        axes[1].set_ylabel("Passagers par vol"); axes[1].legend(); axes[1].grid(True, alpha=0.3)
+        axes[1].set_title("Passagers par vol — proxy load factor")
+        plt.tight_layout(); pdf_pages.savefig(fig, bbox_inches="tight"); plt.close()
+
+        # ── Page 9 : Recommandations tarifaires ─────────────────
+        df_hc  = df[df["covid"] == 0]
+        ref_rm = df_hc.groupby("mois")["passagers"].mean()
+        recs   = []
         for _, row in df_futur.iterrows():
-            mois = row["date"].month
-            prev = row["passagers_prevu"]
-            moy  = ref_rm[mois]
+            mois  = row["date"].month
+            prev  = row["passagers_prevu"]
+            moy   = ref_rm[mois]
             ecart = (prev - moy) / moy * 100
-            if ecart >= seuil_decision:
-                decision = "Augmenter les tarifs"
-            elif ecart <= -seuil_decision:
-                decision = "Stimuler avec promotions"
-            else:
-                decision = "Maintenir la stratégie"
+            if ecart >= seuil_decision:   decision = "Augmenter les tarifs"
+            elif ecart <= -seuil_decision: decision = "Stimuler avec promotions"
+            else:                          decision = "Maintenir la stratégie"
             recs.append({"mois": row["date"].strftime("%b %Y"), "ecart": ecart, "decision": decision})
         df_r = pd.DataFrame(recs)
-        fig, ax = plt.subplots(figsize=(11.69, 5))
-        fig.suptitle(f"Recommandations tarifaires (seuil ±{seuil_decision}%)", fontsize=13, fontweight="bold")
+        fig, axes = plt.subplots(1, 2, figsize=(11.69, 5.5))
+        fig.suptitle(f"8. Recommandations tarifaires (seuil ±{seuil_decision}%)", fontsize=13, fontweight="bold")
         couleurs_r = df_r["ecart"].apply(lambda x: "tomato" if x >= seuil_decision else ("steelblue" if x <= -seuil_decision else "orange"))
-        ax.bar(range(len(df_r)), df_r["ecart"], color=couleurs_r, alpha=0.85)
-        ax.axhline(0, color="black", linewidth=1)
-        ax.axhline(seuil_decision,  color="tomato",    linestyle="--", linewidth=1)
-        ax.axhline(-seuil_decision, color="steelblue", linestyle="--", linewidth=1)
-        ax.set_xticks(range(len(df_r))); ax.set_xticklabels(df_r["mois"], rotation=45, ha="right", fontsize=8)
-        ax.set_ylabel("Écart vs référence (%)"); ax.grid(True, axis="y", alpha=0.3)
+        axes[0].bar(range(len(df_r)), df_r["ecart"], color=couleurs_r, alpha=0.85)
+        axes[0].axhline(0, color="black", linewidth=1)
+        axes[0].axhline(seuil_decision,  color="tomato",    linestyle="--", linewidth=1, label=f"Seuil hausse (+{seuil_decision}%)")
+        axes[0].axhline(-seuil_decision, color="steelblue", linestyle="--", linewidth=1, label=f"Seuil promo (-{seuil_decision}%)")
+        axes[0].set_xticks(range(len(df_r))); axes[0].set_xticklabels(df_r["mois"], rotation=45, ha="right", fontsize=8)
+        axes[0].set_ylabel("Écart vs référence (%)"); axes[0].legend(); axes[0].grid(True, axis="y", alpha=0.3)
+        axes[0].set_title("Écart prévu vs historique")
+        axes[1].axis("off")
+        table3 = axes[1].table(
+            cellText=df_r[["mois","decision"]].values,
+            colLabels=["Mois","Recommandation"], loc="center", cellLoc="center")
+        table3.auto_set_font_size(False); table3.set_fontsize(9); table3.scale(1.3, 1.4)
+        for j in range(2):
+            table3[0, j].set_facecolor("#1a3a5c")
+            table3[0, j].set_text_props(color="white", fontweight="bold")
+        for i in range(1, len(df_r)+1):
+            dec = df_r.iloc[i-1]["decision"]
+            col = "#ffe8e8" if dec == "Augmenter les tarifs" else ("#e8f4e8" if dec == "Stimuler avec promotions" else "#fff8e8")
+            for j in range(2): table3[i, j].set_facecolor(col)
+        axes[1].set_title("Détail des recommandations")
         plt.tight_layout(); pdf_pages.savefig(fig, bbox_inches="tight"); plt.close()
 
-        # Page 7 : Tableau comparaison modèles
-        fig, ax = plt.subplots(figsize=(11.69, 4))
-        fig.suptitle("Comparaison des modèles de prévision", fontsize=13, fontweight="bold")
-        ax.axis("off")
-        data_table = [
-            ["Modèle", "MAE", "RMSE", "MAPE", "Complexité"],
-            ["Naïf (même mois -1 an)", "~300K", "~380K", "~9%", "Très faible"],
-            ["ARIMA (1,1,1)",           "355K",  "401K",  f"{mape_arima:.1f}%", "Moyenne"],
-            ["XGBoost ✅",              f"{mae_xgb/1e3:.0f}K", f"{rmse_xgb/1e3:.0f}K", f"{mape_xgb:.1f}%", "Élevée"],
-        ]
-        table = ax.table(cellText=data_table[1:], colLabels=data_table[0],
-                         loc="center", cellLoc="center")
-        table.auto_set_font_size(False); table.set_fontsize(12); table.scale(1.5, 2.5)
-        for j in range(5):
-            table[0, j].set_facecolor("#1a3a5c")
-            table[0, j].set_text_props(color="white", fontweight="bold")
-        for j in range(5):
-            table[3, j].set_facecolor("#e8f4e8")
+        # ── Page 10 : Simulation revenus ────────────────────────
+        PRIX_MOYEN = 250
+        simulation = []
+        for _, row in df_futur.iterrows():
+            mois  = row["date"].month
+            prev  = row["passagers_prevu"]
+            moy   = ref_rm[mois]
+            ecart = (prev - moy) / moy * 100
+            if ecart >= seuil_decision:
+                nouveau_prix = PRIX_MOYEN * (1 + hausse_pct / 100)
+                nouveaux_pax = prev * (1 - (hausse_pct / 100) * 0.1)
+            elif ecart <= -seuil_decision:
+                nouveau_prix = PRIX_MOYEN * (1 - baisse_pct / 100)
+                nouveaux_pax = prev * (1 + (baisse_pct / 100) * 0.3)
+            else:
+                nouveau_prix = PRIX_MOYEN; nouveaux_pax = prev
+            gain = nouveaux_pax * nouveau_prix - prev * PRIX_MOYEN
+            simulation.append({"date": row["date"], "gain": gain, "mois": row["date"].strftime("%b %Y"),
+                                "revenu_base": prev * PRIX_MOYEN, "revenu_sim": nouveaux_pax * nouveau_prix})
+        df_s = pd.DataFrame(simulation)
+        gain_total = df_s["gain"].sum()
+        fig, axes = plt.subplots(1, 2, figsize=(11.69, 5.5))
+        fig.suptitle(f"9. Simulation de revenus — Gain total estimé : {gain_total/1e6:+.1f}M€", fontsize=13, fontweight="bold")
+        couleurs_s = df_s["gain"].apply(lambda x: "steelblue" if x >= 0 else "tomato")
+        axes[0].bar(df_s["date"], df_s["gain"]/1e6, color=couleurs_s, alpha=0.85, width=25)
+        axes[0].axhline(0, color="black", linewidth=1)
+        axes[0].set_ylabel("Gain estimé (millions €)"); axes[0].grid(True, axis="y", alpha=0.3)
+        axes[0].set_title(f"Impact financier mensuel (hausse +{hausse_pct}% / baisse -{baisse_pct}%)")
+        axes[1].axis("off")
+        table4 = axes[1].table(
+            cellText=[[r["mois"], f"{r['revenu_base']/1e6:.1f}M€", f"{r['revenu_sim']/1e6:.1f}M€", f"{r['gain']/1e6:+.1f}M€"] for _, r in df_s.iterrows()],
+            colLabels=["Mois","Revenu base","Revenu simulé","Gain"], loc="center", cellLoc="center")
+        table4.auto_set_font_size(False); table4.set_fontsize(8); table4.scale(1.2, 1.35)
+        for j in range(4):
+            table4[0, j].set_facecolor("#1a3a5c")
+            table4[0, j].set_text_props(color="white", fontweight="bold")
+        axes[1].set_title("Détail mensuel")
         plt.tight_layout(); pdf_pages.savefig(fig, bbox_inches="tight"); plt.close()
 
     buf.seek(0)
@@ -254,8 +366,9 @@ st.sidebar.subheader("📄 Export")
 if st.sidebar.button("📥 Télécharger le rapport PDF", use_container_width=True):
     with st.spinner("Génération du rapport en cours..."):
         pdf_buf = generer_rapport_pdf(df, df_futur, df_filtre, test_xgb, preds_xgb,
-                                       mae_xgb, rmse_xgb, mape_xgb, mae_arima, mape_arima,
-                                       train, seuil_decision)
+                                       mae_xgb, rmse_xgb, mape_xgb, test_arima, preds_arima,
+                                       mae_arima, rmse_arima, mape_arima, train,
+                                       seuil_decision, horizon, annee_ref, hausse_pct, baisse_pct)
     st.sidebar.download_button(
         label="📄 Cliquer pour télécharger",
         data=pdf_buf,
