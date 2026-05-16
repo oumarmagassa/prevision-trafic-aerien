@@ -111,6 +111,12 @@ horizon = st.sidebar.selectbox("Nombre de mois à prévoir", [6, 12, 18, 24], in
 st.sidebar.subheader("💰 Seuil décision tarifaire")
 seuil_decision = st.sidebar.slider("Seuil hausse/promo (%)", min_value=1, max_value=15, value=5, help="Au-dessus → hausse tarifaire. En dessous → promotion.")
 
+st.sidebar.subheader("💶 Simulation tarifaire")
+hausse_pct = st.sidebar.slider("Hausse tarifaire haute saison (%)", 0, 30, 10, key="hausse_pct")
+baisse_pct = st.sidebar.slider("Baisse tarifaire basse saison (%)", 0, 20, 8, key="baisse_pct")
+elasticite = st.sidebar.slider("Élasticité prix-demande", 0.5, 2.0, 1.2, step=0.1, key="elast",
+                               help="1.0 = la demande baisse autant que le prix monte.")
+
 # ── Appliquer les filtres ────────────────────────────────────────
 df_filtre = df[(df["annee"] >= periode[0]) & (df["annee"] <= periode[1])].copy()
 
@@ -667,11 +673,7 @@ with tab8:
 
     PRIX_MOYEN = 250  # yield moyen Air France en euros (estimation publique)
 
-    st.sidebar.subheader("💶 Simulation tarifaire")
-    hausse_pct = st.sidebar.slider("Hausse tarifaire haute saison (%)", 0, 30, 10, key="hausse_pct")
-    baisse_pct = st.sidebar.slider("Baisse tarifaire basse saison (%)", 0, 20, 8, key="baisse_pct")
-    elasticite = st.sidebar.slider("Élasticité prix-demande", 0.5, 2.0, 1.2, step=0.1, key="elast",
-                                   help="1.0 = la demande baisse autant que le prix monte. 1.2 = demande plus sensible au prix.")
+    # Paramètres définis dans la sidebar
 
     df_hc  = df[df["covid"] == 0]
     ref_rm = df_hc.groupby("mois")["passagers"].mean()
