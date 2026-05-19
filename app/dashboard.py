@@ -9,8 +9,8 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from xgboost import XGBRegressor
 from statsmodels.tsa.arima.model import ARIMA
 
-st.set_page_config(page_title="Trafic Air France", page_icon="✈️", layout="wide")
-st.title("✈️ Prévision du trafic passagers — Air France")
+st.set_page_config(page_title="Trafic Air France", layout="wide")
+st.title("Prévision du trafic passagers — Air France")
 st.caption("Données officielles DGAC · 2010–2024 · Modèles : Naïf · ARIMA · XGBoost")
 
 # ── Chargement ──────────────────────────────────────────────────
@@ -90,28 +90,28 @@ model, train, test_xgb, preds_xgb, mae_xgb, rmse_xgb, mape_xgb, features = entra
 test_arima, preds_arima, mae_arima, rmse_arima, mape_arima = entrainer_arima(df)
 
 # ── Sidebar ──────────────────────────────────────────────────────
-st.sidebar.header("⚙️ Paramètres")
+st.sidebar.header("Paramètres")
 
-st.sidebar.subheader("📅 Période")
+st.sidebar.subheader("Période")
 periode = st.sidebar.slider("Période d'analyse", int(df["annee"].min()), int(df["annee"].max()), (2015, int(df["annee"].max())))
 afficher_covid = st.sidebar.checkbox("Afficher la zone Covid", value=True)
 
-st.sidebar.subheader("🗓️ Saison IATA")
+st.sidebar.subheader("Saison IATA")
 saison_iata = st.sidebar.selectbox("Filtrer par saison", ["Toutes les saisons", "Été IATA (Mar–Oct)", "Hiver IATA (Nov–Fév)"], key="saison")
 
-st.sidebar.subheader("📆 Trimestre")
+st.sidebar.subheader("Trimestre")
 trimestre_filtre = st.sidebar.selectbox("Filtrer par trimestre", ["Tous", "Q1 (Jan–Mar)", "Q2 (Avr–Jun)", "Q3 (Jul–Sep)", "Q4 (Oct–Déc)"], key="trim")
 
-st.sidebar.subheader("📊 Année de référence")
+st.sidebar.subheader("Année de référence")
 annee_ref = st.sidebar.selectbox("Comparer avec", [2019, 2018, 2017, 2016], index=0, key="ref")
 
-st.sidebar.subheader("🔭 Horizon de prévision")
+st.sidebar.subheader("Horizon de prévision")
 horizon = st.sidebar.selectbox("Nombre de mois à prévoir", [6, 12, 18, 24], index=3, key="horizon")
 
-st.sidebar.subheader("💰 Seuil décision tarifaire")
+st.sidebar.subheader("Seuil décision tarifaire")
 seuil_decision = st.sidebar.slider("Seuil hausse/promo (%)", min_value=1, max_value=15, value=5, help="Au-dessus → hausse tarifaire. En dessous → promotion.")
 
-st.sidebar.subheader("💶 Simulation tarifaire")
+st.sidebar.subheader("Simulation tarifaire")
 hausse_pct = st.sidebar.slider("Hausse tarifaire haute saison (%)", 0, 30, 10, key="hausse_pct")
 baisse_pct = st.sidebar.slider("Baisse tarifaire basse saison (%)", 0, 20, 8, key="baisse_pct")
 elasticite = st.sidebar.slider("Élasticité prix-demande", 0.5, 2.0, 1.2, step=0.1, key="elast",
@@ -195,7 +195,7 @@ def generer_rapport_pdf(df, df_futur, df_filtre, test_xgb, preds_xgb, mae_xgb, r
             ["Modèle", "MAE", "MAPE"],
             ["Naïf", "~300K", "~9%"],
             ["ARIMA", f"{mae_arima/1e3:.0f}K", f"{mape_arima:.1f}%"],
-            ["XGBoost ✅", f"{mae_xgb/1e3:.0f}K", f"{mape_xgb:.1f}%"],
+            ["XGBoost ", f"{mae_xgb/1e3:.0f}K", f"{mape_xgb:.1f}%"],
         ]
         axes[1].axis("off")
         table = axes[1].table(cellText=data_table[1:], colLabels=data_table[0], loc="center", cellLoc="center")
@@ -368,33 +368,33 @@ def generer_rapport_pdf(df, df_futur, df_filtre, test_xgb, preds_xgb, mae_xgb, r
 
 # Bouton export PDF dans la sidebar
 st.sidebar.divider()
-st.sidebar.subheader("📄 Export")
-if st.sidebar.button("📥 Télécharger le rapport PDF", use_container_width=True):
+st.sidebar.subheader("Export")
+if st.sidebar.button(" Télécharger le rapport PDF", use_container_width=True):
     with st.spinner("Génération du rapport en cours..."):
         pdf_buf = generer_rapport_pdf(df, df_futur, df_filtre, test_xgb, preds_xgb,
                                        mae_xgb, rmse_xgb, mape_xgb, test_arima, preds_arima,
                                        mae_arima, rmse_arima, mape_arima, train,
                                        seuil_decision, horizon, annee_ref, hausse_pct, baisse_pct)
     st.sidebar.download_button(
-        label="📄 Cliquer pour télécharger",
+        label=" Cliquer pour télécharger",
         data=pdf_buf,
         file_name=f"rapport_trafic_airfrance_{datetime.date.today().strftime('%Y%m%d')}.pdf",
         mime="application/pdf",
         use_container_width=True
     )
-    st.sidebar.success("✅ Rapport prêt !")
+    st.sidebar.success(" Rapport prêt !")
 
 # ── Onglets ──────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
-    "📊 Analyse", "🤖 XGBoost", "🔮 Prévisions",
-    "⚖️ Comparaison modèles", "🏥 Reprise post-Covid",
-    "📦 Rendement & Load Factor", "🎯 Recommandations",
-    "💶 Simulation revenus", "📈 Courbes de réservation"
+    " Analyse", " XGBoost", " Prévisions",
+    " Comparaison modèles", " Reprise post-Covid",
+    " Rendement & Load Factor", " Recommandations",
+    " Simulation revenus", " Courbes de réservation"
 ])
 
 # ══ TAB 1 — Analyse ═════════════════════════════════════════════
 with tab1:
-    st.subheader("📊 Indicateurs clés")
+    st.subheader("Indicateurs clés")
     if len(df_filtre) == 0:
         st.warning("Aucune donnée pour cette sélection.")
     else:
@@ -403,11 +403,11 @@ with tab1:
         min_mois = df_filtre.loc[df_filtre["passagers"].idxmin()]
         col1.metric("Total passagers",   f"{df_filtre['passagers'].sum()/1e6:.1f}M")
         col2.metric("Moyenne mensuelle", f"{df_filtre['passagers'].mean()/1e3:.0f}K")
-        col3.metric("🔺 Pic",  f"{max_mois['passagers']/1e6:.2f}M", max_mois["date"].strftime("%b %Y"))
-        col4.metric("🔻 Creux", f"{min_mois['passagers']/1e3:.0f}K", min_mois["date"].strftime("%b %Y"))
+        col3.metric(" Pic",  f"{max_mois['passagers']/1e6:.2f}M", max_mois["date"].strftime("%b %Y"))
+        col4.metric(" Creux", f"{min_mois['passagers']/1e3:.0f}K", min_mois["date"].strftime("%b %Y"))
         st.divider()
 
-        st.subheader("📈 Évolution du trafic passagers")
+        st.subheader("Évolution du trafic passagers")
         fig, ax = plt.subplots(figsize=(12, 4))
         ax.plot(df_filtre["date"], df_filtre["passagers"]/1e6, color="steelblue", linewidth=1.8)
         ax.fill_between(df_filtre["date"], df_filtre["passagers"]/1e6, alpha=0.1, color="steelblue")
@@ -419,7 +419,7 @@ with tab1:
         st.pyplot(fig)
         st.divider()
 
-        st.subheader("📅 Saisonnalité mensuelle")
+        st.subheader("Saisonnalité mensuelle")
         saisonnalite = df[df["covid"]==0].groupby("mois")["passagers"].mean()/1e6
         ref_annee    = df[df["annee"]==annee_ref].groupby("mois")["passagers"].mean()/1e6
         fig2, ax2 = plt.subplots(figsize=(10, 3))
@@ -431,14 +431,14 @@ with tab1:
         ax2.legend(); ax2.grid(True, axis="y", alpha=0.3)
         st.pyplot(fig2)
 
-        with st.expander("🗂️ Voir les données brutes"):
+        with st.expander(" Voir les données brutes"):
             st.dataframe(df_filtre[["date","passagers","vols","passagers_km"]].rename(columns={
                 "date":"Date","passagers":"Passagers","vols":"Vols","passagers_km":"Passagers-km (milliards)"}),
                 use_container_width=True)
 
 # ══ TAB 2 — XGBoost ═════════════════════════════════════════════
 with tab2:
-    st.subheader("🤖 Performances du modèle XGBoost")
+    st.subheader("Performances du modèle XGBoost")
     st.caption("Entraîné sur 2010–2022 · Testé sur 2023–2024")
     m1, m2, m3 = st.columns(3)
     m1.metric("MAE",  f"{mae_xgb/1e3:.0f}K passagers")
@@ -453,11 +453,11 @@ with tab2:
     ax3.set_ylabel("Passagers (millions)"); ax3.legend(); ax3.grid(True, alpha=0.3)
     ax3.set_title("Prévision XGBoost vs Réel (2023–2024)")
     st.pyplot(fig3)
-    st.info("💡 MAPE de 3.1% — le modèle se trompe en moyenne de 3.1%, soit environ 106 000 passagers par mois.")
+    st.info(" MAPE de 3.1% — le modèle se trompe en moyenne de 3.1%, soit environ 106 000 passagers par mois.")
 
 # ══ TAB 3 — Prévisions ══════════════════════════════════════════
 with tab3:
-    st.subheader(f"🔮 Prévisions du trafic Air France — {horizon} mois")
+    st.subheader(f"Prévisions du trafic Air France — {horizon} mois")
     moy_2024  = df[df["annee"]==2024]["passagers"].mean()
     moy_futur = df_futur["passagers_prevu"].mean()
     p1, p2, p3 = st.columns(3)
@@ -475,7 +475,7 @@ with tab3:
     ax4.set_ylabel("Passagers (millions)"); ax4.legend(); ax4.grid(True, alpha=0.3)
     ax4.set_title("Trafic Air France : historique et prévisions")
     st.pyplot(fig4)
-    st.subheader("📋 Détail mensuel")
+    st.subheader("Détail mensuel")
     df_aff = df_futur.copy()
     df_aff["date"] = df_aff["date"].dt.strftime("%B %Y")
     df_aff["passagers_prevu"] = df_aff["passagers_prevu"].apply(lambda x: f"{x:,.0f}")
@@ -484,10 +484,10 @@ with tab3:
 
 # ══ TAB 4 — Comparaison ═════════════════════════════════════════
 with tab4:
-    st.subheader("⚖️ Comparaison des modèles de prévision")
+    st.subheader("Comparaison des modèles de prévision")
     st.caption("Tous les modèles sont évalués sur la même période : 2023–2024")
     comparaison = pd.DataFrame({
-        "Modèle":     ["Naïf (même mois -1 an)", "ARIMA (1,1,1)", "XGBoost ✅"],
+        "Modèle":     ["Naïf (même mois -1 an)", "ARIMA (1,1,1)", "XGBoost "],
         "MAE":        ["~300K", f"{mae_arima/1e3:.0f}K", f"{mae_xgb/1e3:.0f}K"],
         "RMSE":       ["~380K", f"{rmse_arima/1e3:.0f}K", f"{rmse_xgb/1e3:.0f}K"],
         "MAPE":       ["~9%", f"{mape_arima:.1f}%", f"{mape_xgb:.1f}%"],
@@ -501,11 +501,11 @@ with tab4:
     ax5.set_ylabel("Passagers (millions)"); ax5.legend(); ax5.grid(True, alpha=0.3)
     ax5.set_title("Comparaison XGBoost vs ARIMA vs Réel (2023–2024)")
     st.pyplot(fig5)
-    st.success("🏆 XGBoost gagne avec un MAPE de 3.1% contre 10.2% pour ARIMA — grâce aux variables de lags et à la saisonnalité capturée par le machine learning.")
+    st.success(" XGBoost gagne avec un MAPE de 3.1% contre 10.2% pour ARIMA — grâce aux variables de lags et à la saisonnalité capturée par le machine learning.")
 
 # ══ TAB 5 — Reprise Covid ═══════════════════════════════════════
 with tab5:
-    st.subheader("🏥 Analyse de la reprise post-Covid")
+    st.subheader("Analyse de la reprise post-Covid")
     st.caption("Référence : moyenne mensuelle 2017–2019 (niveau pré-Covid)")
     ref  = df[df["annee"].isin([2017,2018,2019])].groupby("mois")["passagers"].mean()
     post = df[df["annee"] >= 2021].copy()
@@ -540,11 +540,11 @@ with tab5:
     ax7.set_ylabel("Passagers (millions)"); ax7.legend(); ax7.grid(True, alpha=0.3)
     ax7.set_title(f"Comparaison mensuelle : 2022, 2023, 2024 vs référence {annee_ref}")
     st.pyplot(fig7)
-    st.info("💡 Insight Revenue Management : Air France n'a pas encore retrouvé son niveau pré-Covid sur certains mois. Cela suggère des opportunités de stimulation de la demande via la politique tarifaire, notamment en basse saison.")
+    st.info(" Insight Revenue Management : Air France n'a pas encore retrouvé son niveau pré-Covid sur certains mois. Cela suggère des opportunités de stimulation de la demande via la politique tarifaire, notamment en basse saison.")
 
 # ══ TAB 6 — Rendement ═══════════════════════════════════════════
 with tab6:
-    st.subheader("📦 Analyse du rendement & load factor")
+    st.subheader("Analyse du rendement & load factor")
     st.caption("Indicateurs clés du Revenue Management : efficacité des vols et rendement par passager")
     df_rm = df.copy()
     df_rm["dist_moy_km"] = (df_rm["passagers_km_num"] * 1e9) / df_rm["passagers"]
@@ -589,11 +589,11 @@ with tab6:
     ax10b.tick_params(axis="x", rotation=45); ax10b.grid(True, axis="y", alpha=0.3)
     plt.tight_layout()
     st.pyplot(fig10)
-    st.success("💡 Insight Revenue Management : Les mois avec le plus de passagers par vol (juillet–août) sont ceux où la demande est la plus forte. C'est là qu'on maximise les tarifs. En basse saison (janvier–février), on stimule la demande avec des prix plus attractifs.")
+    st.success(" Insight Revenue Management : Les mois avec le plus de passagers par vol (juillet–août) sont ceux où la demande est la plus forte. C'est là qu'on maximise les tarifs. En basse saison (janvier–février), on stimule la demande avec des prix plus attractifs.")
 
 # ══ TAB 7 — Recommandations ═════════════════════════════════════
 with tab7:
-    st.subheader("🎯 Recommandations tarifaires — Revenue Management")
+    st.subheader("Recommandations tarifaires — Revenue Management")
     st.caption("Décisions concrètes basées sur les prévisions XGBoost vs l'historique")
 
     df_hc  = df[df["covid"] == 0]
@@ -629,9 +629,9 @@ with tab7:
     nb_maintien = (df_recs["type_rec"] == "maintien").sum()
     nb_promo    = (df_recs["type_rec"] == "promo").sum()
     c1, c2, c3 = st.columns(3)
-    c1.metric("🔴 Hausse tarifaire",   str(nb_hausse)   + f" mois sur {horizon}")
-    c2.metric("🟡 Maintien stratégie", str(nb_maintien) + f" mois sur {horizon}")
-    c3.metric("🟢 Stimulation promo",  str(nb_promo)    + f" mois sur {horizon}")
+    c1.metric(" Hausse tarifaire",   str(nb_hausse)   + f" mois sur {horizon}")
+    c2.metric(" Maintien stratégie", str(nb_maintien) + f" mois sur {horizon}")
+    c3.metric(" Stimulation promo",  str(nb_promo)    + f" mois sur {horizon}")
     st.divider()
 
     fig11, ax11 = plt.subplots(figsize=(12, 4))
@@ -645,7 +645,7 @@ with tab7:
     st.pyplot(fig11)
     st.divider()
 
-    st.subheader("📋 Détail mois par mois")
+    st.subheader("Détail mois par mois")
     annees_disponibles = sorted(df_recs["date"].dt.year.unique())
     cols = st.columns(len(annees_disponibles))
     for col, annee in zip(cols, annees_disponibles):
@@ -668,7 +668,7 @@ with tab7:
 
 # ══ TAB 8 — Simulation revenus ══════════════════════════════════
 with tab8:
-    st.subheader("💶 Simulation de revenus — Impact des décisions tarifaires")
+    st.subheader("Simulation de revenus — Impact des décisions tarifaires")
     st.caption("Estimation de l'impact financier des ajustements de prix sur les prévisions 2025–2026")
 
     PRIX_MOYEN = 250  # yield moyen Air France en euros (estimation publique)
@@ -731,7 +731,7 @@ with tab8:
     k3.metric("Gain basse saison",        f"{gain_promo/1e6:+.1f}M€",  f"Baisse de {baisse_pct}%")
     k4.metric("Prix moyen de référence",  f"{PRIX_MOYEN}€ / passager")
 
-    st.info(f"💡 En appliquant une hausse de **{hausse_pct}%** en haute saison et une baisse de **{baisse_pct}%** en basse saison, Air France pourrait générer **{gain_total/1e6:+.1f}M€** de revenus supplémentaires sur {horizon} mois.")
+    st.info(f" En appliquant une hausse de **{hausse_pct}%** en haute saison et une baisse de **{baisse_pct}%** en basse saison, Air France pourrait générer **{gain_total/1e6:+.1f}M€** de revenus supplémentaires sur {horizon} mois.")
 
     st.divider()
 
@@ -748,7 +748,7 @@ with tab8:
     st.divider()
 
     # Tableau comparatif
-    st.subheader("📋 Comparaison revenu base vs simulé")
+    st.subheader("Comparaison revenu base vs simulé")
     df_aff_sim = df_sim[["mois","prix_base","prix_simule","pax_prevu","pax_simule","revenu_base","revenu_simule","gain"]].copy()
     df_aff_sim["prix_base"]     = df_aff_sim["prix_base"].apply(lambda x: f"{x:.0f}€")
     df_aff_sim["prix_simule"]   = df_aff_sim["prix_simule"].apply(lambda x: f"{x:.0f}€")
@@ -760,11 +760,11 @@ with tab8:
     df_aff_sim.columns = ["Mois","Prix base","Prix simulé","Pax prévus","Pax simulés","Revenu base","Revenu simulé","Gain"]
     st.dataframe(df_aff_sim, use_container_width=True, hide_index=True)
 
-    st.warning("⚠️ Simulation basée sur un yield moyen estimé de 250€/passager et une élasticité simplifiée. En contexte réel, chaque route a son propre yield et sa propre élasticité.")
+    st.warning(" Simulation basée sur un yield moyen estimé de 250€/passager et une élasticité simplifiée. En contexte réel, chaque route a son propre yield et sa propre élasticité.")
 
 # ══ TAB 9 — Courbes de réservation ══════════════════════════════
 with tab9:
-    st.subheader("📈 Courbes de réservation simulées")
+    st.subheader("Courbes de réservation simulées")
     st.caption("Simulation du comportement de réservation avant le vol — concept clé du Revenue Management")
 
     st.markdown("""
@@ -772,9 +772,9 @@ with tab9:
     Elle permet de savoir si un vol va se remplir normalement ou non, et d'ajuster les tarifs en conséquence.
 
     **Profils types :**
-    - 🔵 **Loisir** : réserve tôt (6–8 semaines avant), sensible au prix
-    - 🔴 **Affaires** : réserve tard (1–2 semaines avant), peu sensible au prix
-    - 🟢 **Normal** : mix des deux profils
+    -  **Loisir** : réserve tôt (6–8 semaines avant), sensible au prix
+    -  **Affaires** : réserve tard (1–2 semaines avant), peu sensible au prix
+    -  **Normal** : mix des deux profils
     """)
 
     st.divider()
@@ -850,12 +850,12 @@ with tab9:
     k2.metric("Prix à J-1",                 f"{prix_final:.0f}€", f"+{prix_final-prix_depart:.0f}€ vs départ")
     k3.metric("Revenu estimé du vol",        f"{revenu_sim:,.0f}€")
 
-    st.success(f"💡 Avec un profil **{profil.lower()}**, l'avion devrait être rempli à **{taux_final:.1f}%** la veille du vol. "
+    st.success(f" Avec un profil **{profil.lower()}**, l'avion devrait être rempli à **{taux_final:.1f}%** la veille du vol. "
                f"Le prix dynamique est passé de **{prix_depart}€** à **{prix_final:.0f}€** — soit une hausse de **{((prix_final/prix_depart)-1)*100:.1f}%**. "
                f"C'est exactement la logique du Revenue Management : maximiser le revenu selon la demande réelle.")
 
     st.divider()
-    st.info("ℹ️ Cette simulation est une illustration pédagogique du concept de courbe de réservation. "
+    st.info("ℹ Cette simulation est une illustration pédagogique du concept de courbe de réservation. "
             "En réalité, Air France utilise des systèmes RM sophistiqués (Amadeus, etc.) avec des données de réservation en temps réel sur chaque vol.")
 
 st.divider()
